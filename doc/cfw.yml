@@ -1,0 +1,8 @@
+if_name: eth0
+storage_usage_limit_percent: 90
+log_dir: /var/log/castis/cfw_log
+log_level: debug
+listen_addr: :8888
+cfm_addr: 172.18.0.3:8080
+downloader_bin: /usr/local/castis/tools/SampleNetIODownloader.el5.i686
+base_dir: /data

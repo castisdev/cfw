@@ -1,0 +1,8 @@
+#!/bin/sh
+
+sleep 1
+
+echo "[2018-06-01 08:24:54.583][NetIODownloader NetIO.cpp:netio_connect(22)][Error ] netio_connect :: CiSocket Connect Fail
+[2018-06-01 08:24:54.583][NetIODownloader NetIODownloader.cpp:StartDownload(347)][Error ] CNetIODownloader::StartDownload :: netio_connect to 172.18.0.102 Fail
+[2018-06-01 08:24:54.583][NetIODownloader NetIOSampleDownloader.cpp:main(59)][Error ] ./test.mpg download fail
+" >&2

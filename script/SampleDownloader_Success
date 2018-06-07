@@ -1,0 +1,8 @@
+#!/bin/sh
+
+sleep 1
+
+echo "[2018-06-01 08:25:05.211][NetIODownloader NetIODownloader.cpp:InitInstance(244)][Information ] NetIODownloader - File (/data3/M0187A03SGL0800001_K20101101000000.MPG) Download from (172.18.0.102) STARTED!
+[2018-06-01 08:25:05.834][NetIODownloader NetIODownloader.cpp:Run(293)][Information ] CNetIODownloader - File (./test.mpg) Download Successfully Ended!
+[2018-06-01 08:25:05.875][NetIODownloader NetIOSampleDownloader.cpp:main(57)][Information ] ./test.mpg download success
+" >&2
