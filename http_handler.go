@@ -6,13 +6,20 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"syscall"
+	"path/filepath"
 
 	"github.com/castisdev/cfm/common"
-	"github.com/castisdev/cilog"
 
 	"github.com/gorilla/mux"
 )
+
+// Heartbeat :
+func Heartbeat(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain;charset=UTF-8")
+
+	api.Debugf("[%s] receive heartbeat request", r.RemoteAddr)
+	w.WriteHeader(http.StatusOK)
+}
 
 // GetFileList :
 func GetFileList(w http.ResponseWriter, r *http.Request) {
@@ -20,48 +27,46 @@ func GetFileList(w http.ResponseWriter, r *http.Request) {
 
 	files, err := ioutil.ReadDir(config.BaseDir)
 	if err != nil {
-		cilog.Warningf("fail to get file list,path(%s),error(%s)", config.BaseDir, err)
-		w.WriteHeader(http.StatusBadRequest)
+		api.Errorf("[%s] fail to get file list, path(%s), error(%s)",
+			r.RemoteAddr, config.BaseDir, err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
 	for _, file := range files {
+		if file.IsDir() {
+			continue
+		}
 		fmt.Fprintln(w, file.Name())
 	}
 
+	api.Debugf("[%s] receive get file list request", r.RemoteAddr)
 }
 
 // GetDiskUsage :
 func GetDiskUsage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
 
-	fs := syscall.Statfs_t{}
-	if err := syscall.Statfs(config.BaseDir, &fs); err != nil {
-		cilog.Warningf("fail to get disk usage,path(%s),error(%s)", config.BaseDir, err)
-		w.WriteHeader(http.StatusBadRequest)
+	du, err := common.GetDiskUsage(config.BaseDir)
+	if err != nil {
+		api.Errorf("[%s] fail to get disk usage, path(%s), error(%s)",
+			r.RemoteAddr, config.BaseDir, err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
-	}
-
-	t := int64(fs.Blocks * uint64(fs.Bsize))
-	f := int64(fs.Bfree * uint64(fs.Bsize))
-	u := t - f
-	p := int((u*100/t*100)/100 + 1)
-
-	du := common.DiskUsage{
-		TotalSize:   t,
-		UsedSize:    u,
-		FreeSize:    f,
-		UsedPercent: p,
 	}
 
 	if err := json.NewEncoder(w).Encode(&du); err != nil {
-		// w.WriteHeader(http.StatusInternalServerError)
+		api.Errorf("[%s] fail to get disk usage, path(%s), error(%s)",
+			r.RemoteAddr, config.BaseDir, err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	api.Debugf("[%s] receive get disk usage request", r.RemoteAddr)
 
-	// w.WriteHeader(http.StatusOK)
-
+	// https://github.com/golang/go/issues/18761
+	// 버그? : 어떻게 고치는 지는 모르겠음
+	//w.WriteHeader(http.StatusOK)
 }
 
 // DeleteFile :
@@ -72,17 +77,39 @@ func DeleteFile(w http.ResponseWriter, r *http.Request) {
 	fileName, exists := vars["fileName"]
 
 	if !exists {
+		api.Errorf("[%s] fail to delete file, request has no fileName", r.RemoteAddr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
-	filePath := config.BaseDir + "/" + fileName
-	if err := os.Remove(filePath); err != nil {
-		cilog.Warningf("fail to delete file,error(%s)", err)
+	filePath := filepath.Join(config.BaseDir, fileName)
+
+	finfo, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			api.Warningf("[%s] fail to delete file(%s), not exist, error(%s)",
+				r.RemoteAddr, filePath, err)
+			w.WriteHeader(http.StatusNoContent)
+			return
+		} else {
+			api.Errorf("[%s] fail to delete file(%s), error(%s)", r.RemoteAddr, filePath, err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 	}
 
-	cilog.Infof("delete file(%s)", filePath)
+	if finfo.IsDir() {
+		api.Errorf("[%s] fail to delete file, it is directory(%s)", r.RemoteAddr, filePath)
+		w.WriteHeader(http.StatusConflict)
+		return
+	}
 
+	if err := os.Remove(filePath); err != nil {
+		api.Warningf("[%s] fail to delete file(%s), error(%s)", r.RemoteAddr, filePath, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	api.Infof("[%s] receive delete file request, delete file(%s)", r.RemoteAddr, filePath)
 	w.WriteHeader(http.StatusOK)
-
 }

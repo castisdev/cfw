@@ -1,8 +1,24 @@
-if_name: eth0
+# deprecated:
+# 1.0.0.QR2 이후에는 더 이상 사용하지 않음
+#if_name: eth0
+
 storage_usage_limit_percent: 90
+
 log_dir: /var/log/castis/cfw_log
+
 log_level: debug
-listen_addr: :8888
+
+# cfm와 통신하기 위한 address
+# cfm의 src 또는 dest address로 등록되어있어야 함
+# cfm이 만든 task list 중에서 task를 찾을 때 key값으로 사용됨
+listen_addr: 127.0.0.1:8888
+
+# cfm의 통신 address
 cfm_addr: 172.18.0.3:8080
+
 downloader_bin: /usr/local/castis/tools/SampleNetIODownloader.el5.i686
+
+# cfw가 관리하는 대상이 되는 파일 directory
+# 해당 directory의 파일 정보를 cfm과 주고 받으면서,
+# 해당 directory로 파일을 download받거나, 해당 directory의 파일을 삭제함
 base_dir: /data

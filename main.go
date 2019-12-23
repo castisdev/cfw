@@ -15,12 +15,13 @@ import (
 
 var config *Config
 var myIP string
+var api common.MLogger
 
 // App constant
 const (
 	AppName      = "cfw"
 	AppVersion   = "1.0.0"
-	AppPreRelVer = "-qr1"
+	AppPreRelVer = "QR2"
 )
 
 func main() {
@@ -41,7 +42,7 @@ func main() {
 	}
 
 	if *printVer {
-		fmt.Println(AppName + " " + AppVersion + AppPreRelVer)
+		fmt.Println(AppName + " " + AppVersion + "." + AppPreRelVer)
 		os.Exit(0)
 	}
 
@@ -55,16 +56,23 @@ func main() {
 
 	logLevel, _ := cilog.LevelFromString(config.LogLevel)
 
-	cilog.Set(cilog.NewLogWriter(config.LogDir, AppName, 10*1024*1024), AppName, AppVersion, logLevel)
+	mLogWriter := common.MLogWriter{
+		LogWriter: cilog.NewLogWriter(config.LogDir, AppName, 10*1024*1024),
+		Dir:       config.LogDir,
+		App:       AppName,
+		MaxSize:   (10 * 1024 * 1024)}
 
-	myIP, err = common.GetIPv4ByInterfaceName(config.IFName)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(-1)
-	}
+	api = common.MLogger{
+		Logger: cilog.StdLogger(),
+		Mod:    "api"}
 
+	cilog.Set(mLogWriter,
+		AppName, AppVersion, logLevel)
+
+	myAddr := config.ListenAddr
 	cilog.Infof("process start")
-	dl := NewDownloader(config.BaseDir, myIP, config.DownloaderBin, config.CFMAddr, config.StorageUsageLimitPercent)
+	dl := NewDownloader(config.BaseDir, myAddr, config.DownloaderBin,
+		config.CFMAddr, config.StorageUsageLimitPercent, config.DownloaderSleepSec)
 	go dl.RunForever()
 
 	router := NewRouter()

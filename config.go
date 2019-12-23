@@ -13,17 +13,20 @@ import (
 // Config :
 type Config struct {
 	IFName                   string `mapstructure:"if_name"`
-	StorageUsageLimitPercent int    `mapstructure:"storage_usage_limit_percent"`
+	StorageUsageLimitPercent uint   `mapstructure:"storage_usage_limit_percent"`
 	LogDir                   string `mapstructure:"log_dir"`
 	LogLevel                 string `mapstructure:"log_level"`
 	ListenAddr               string `mapstructure:"listen_addr"`
 	CFMAddr                  string `mapstructure:"cfm_addr"`
 	DownloaderBin            string `mapstructure:"downloader_bin"`
 	BaseDir                  string `mapstructure:"base_dir"`
+	DownloaderSleepSec       uint   `mapstructure:"downloader_sleep_sec"`
 }
 
 // ReadConfig :
 func ReadConfig(configFile string) (*Config, error) {
+	viper.SetDefault("downloader_sleep_sec", uint(5))
+	viper.SetDefault("storage_usage_limit_percent", uint(90))
 
 	var c Config
 	viper.SetConfigFile(configFile)

@@ -42,6 +42,12 @@ func NewRouter() *mux.Router {
 
 var routes = Routes{
 	Route{
+		Name:        "hb",
+		Method:      "HEAD",
+		Pattern:     "/hb",
+		HandlerFunc: Heartbeat,
+	},
+	Route{
 		Name:        "ls",
 		Method:      "GET",
 		Pattern:     "/files",
