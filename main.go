@@ -6,11 +6,13 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path"
 	"runtime/debug"
 	"time"
 
 	"github.com/castisdev/cfm/common"
 	"github.com/castisdev/cilog"
+	"github.com/kardianos/osext"
 )
 
 var config *Config
@@ -21,7 +23,7 @@ var api common.MLogger
 const (
 	AppName      = "cfw"
 	AppVersion   = "1.0.0"
-	AppPreRelVer = "QR2"
+	AppPreRelVer = "qr2"
 )
 
 func main() {
@@ -42,14 +44,18 @@ func main() {
 	}
 
 	if *printVer {
-		fmt.Println(AppName + " " + AppVersion + "." + AppPreRelVer)
+		fmt.Println(AppName + " " + AppVersion + "-" + AppPreRelVer)
 		os.Exit(0)
 	}
 
-	var err error
-	config, err = ReadConfig("cfw.yml")
+	execDir, err := osext.ExecutableFolder()
 	if err != nil {
-		panic(err)
+		log.Fatalf("fail to get executable folder, %s", err)
+	}
+
+	config, err := ReadConfig(path.Join(execDir, "cfw.yml"))
+	if err != nil {
+		log.Fatalf("fail to read config, error(%s)", err)
 	}
 
 	ValidationConfig(*config)
