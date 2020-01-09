@@ -43,6 +43,7 @@ file3.mpg
   - 500 Internal Server Error
 
 ```json
+{"total_size":"314913513472","used_size":"200937054208","avail_size":"97956167680","used_percent":67,"free_size":"113976459264"}
 
 ```
 - curl 사용 예:
@@ -53,7 +54,6 @@ file3.mpg
 ```bash
     $ http 127.0.0.1:9888/df
 ```
-
 
 ## DELETE /files/{filename}
 - base directory의 파일 삭제
@@ -67,9 +67,9 @@ file3.mpg
 
 - curl 사용 예:
 ```bash
-    $ curl 127.0.0.1:9888/files/file1.mpg
+    curl -X DELETE 127.0.0.1:9888/files/file1.mpg
 ```
 - httpie 사용 예:
 ```bash
-    $ http 127.0.0.1:9888/files/file1.mpg
+    $ http DELETE 127.0.0.1:9888/files/file1.mpg
 ```

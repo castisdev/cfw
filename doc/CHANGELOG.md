@@ -7,6 +7,9 @@ v1.0.0.qr2 / 2020-01-XX
   * 일부 로그 변경
   * file 조회 API 응답 내용 변경
     - base directory 에 하위 directory 정보는 포함시키지 않고, file만 보내도록 수정
+  * 설정 제거
+    * [if_name] 제거되고, listen_addr 의 ip,port 값을 사용함
+
 
 [개선]
   * file delete API 응답 추가

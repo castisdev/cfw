@@ -16,7 +16,6 @@ import (
 )
 
 var config *Config
-var myIP string
 var api common.MLogger
 
 // App constant

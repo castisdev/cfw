@@ -12,7 +12,6 @@ import (
 
 // Config :
 type Config struct {
-	IFName                   string `mapstructure:"if_name"`
 	StorageUsageLimitPercent uint   `mapstructure:"storage_usage_limit_percent"`
 	LogDir                   string `mapstructure:"log_dir"`
 	LogLevel                 string `mapstructure:"log_level"`

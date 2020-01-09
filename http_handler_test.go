@@ -202,7 +202,7 @@ func TestDeleteFile(t *testing.T) {
 		t.Errorf("fail to delete file, error(%s)", err.Error())
 		return
 	}
-	assert.Equal(t, rc, http.StatusNoContent)
+	assert.Equal(t, rc, http.StatusNotFound)
 
 	//있는 파일 삭제 요청
 	url = fmt.Sprintf("http://%s/files/%s", cfwaddr, fn)
