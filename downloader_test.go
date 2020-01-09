@@ -15,72 +15,155 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestGetTask(t *testing.T) {
-	myip := "127.0.0.1"
-	myaddr := "127.0.0.1:8889"
-	// dummy task
-	d1ID := int64(111111111111)
-	d2ID := int64(222222222222)
-	dummyTaskList := []tasker.Task{
-		{
-			ID:       d1ID,
-			Ctime:    222222222,
-			Mtime:    333333333,
-			Status:   tasker.READY,
-			SrcIP:    "172.18.0.101",
-			DstIP:    "172.18.0.105",
-			FilePath: "/data2/A.mpg",
-			FileName: "A.mpg",
-			Grade:    1,
-			SrcAddr:  "172.18.0.101:9888",
-			DstAddr:  "172.18.0.105:7889",
-		},
-		{
-			ID:       d2ID,
-			Ctime:    222222222,
-			Mtime:    333333333,
-			Status:   tasker.READY,
-			SrcIP:    "172.18.0.102",
-			DstIP:    myip,
-			FilePath: "/data2/B.mpg",
-			FileName: "B.mpg",
-			Grade:    2,
-			SrcAddr:  "172.18.0.102:9888",
-			DstAddr:  myaddr,
-		},
+func cfm(cfmaddr string) *httptest.Server {
+	router := mux.NewRouter().StrictSlash(true)
+	router.Methods("PATCH").Path("/tasks/{taskId}").HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			var s struct {
+				Status tasker.Status `json:"status"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&s); err != nil {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			defer r.Body.Close()
+			w.WriteHeader(http.StatusOK)
+			return
+		})
+
+	router.Methods("GET").Path("/tasks").HandlerFunc(
+		func(w http.ResponseWriter, r *http.Request) {
+			destip := "127.0.0.1"
+			destaddr := "127.0.0.1:8889"
+			// dummy task
+			d1ID := int64(111111111111)
+			d2ID := int64(222222222222)
+			dummyTaskList := []tasker.Task{
+				{
+					ID:       d1ID,
+					Ctime:    222222222,
+					Mtime:    333333333,
+					Status:   tasker.READY,
+					SrcIP:    "172.18.0.101",
+					DstIP:    "172.18.0.105",
+					FilePath: "/data2/A.mpg",
+					FileName: "A.mpg",
+					Grade:    1,
+					SrcAddr:  "172.18.0.101:9888",
+					DstAddr:  "172.18.0.105:7889",
+				},
+				{
+					ID:       d2ID,
+					Ctime:    222222222,
+					Mtime:    333333333,
+					Status:   tasker.READY,
+					SrcIP:    "172.18.0.102",
+					DstIP:    destip,
+					FilePath: "/data2/B.mpg",
+					FileName: "B.mpg",
+					Grade:    2,
+					SrcAddr:  "172.18.0.102:9888",
+					DstAddr:  destaddr,
+				},
+			}
+			json.NewEncoder(w).Encode(&dummyTaskList)
+		})
+	s := &http.Server{
+		Addr:         cfmaddr,
+		Handler:      router,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
 	}
 
-	// dummy http server
-	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(&dummyTaskList)
-	})
-
-	cfmaddr := "127.0.0.1:18883"
-	ds := httptest.NewUnstartedServer(h)
+	cfw := httptest.NewUnstartedServer(router)
 	l, _ := net.Listen("tcp", cfmaddr)
-	ds.Listener.Close()
-	ds.Listener = l
-	ds.Start()
-	defer ds.Close()
+	cfw.Listener.Close()
+	cfw.Listener = l
+	cfw.Config = s
+
+	return cfw
+}
+
+func TestWaitTask(t *testing.T) {
+	myaddr := "127.0.0.1:8889"
+	cfmaddr := "127.0.0.1:18883"
+	cfm := cfm(cfmaddr)
+	cfm.Start()
+	defer cfm.Close()
+
+	expectedtaskID := int64(222222222222)
+	destip := "127.0.0.1"
+	destaddr := "127.0.0.1:8889"
+	expectedtask := tasker.Task{
+		ID:       expectedtaskID,
+		Ctime:    222222222,
+		Mtime:    333333333,
+		Status:   tasker.READY,
+		SrcIP:    "172.18.0.102",
+		DstIP:    destip,
+		FilePath: "/data2/B.mpg",
+		FileName: "B.mpg",
+		Grade:    2,
+		SrcAddr:  "172.18.0.102:9888",
+		DstAddr:  destaddr,
+	}
+
+	dl := NewDownloader(".", myaddr, "SampleDownloader", cfmaddr, 100, 1)
+
+	task := dl.waitTask()
+	t.Logf("found task:%s", task)
+
+	assert.Equal(t, task.ID, expectedtask.ID)
+	assert.Equal(t, task.Ctime, expectedtask.Ctime)
+	assert.Equal(t, task.Mtime, expectedtask.Mtime)
+	assert.Equal(t, task.Status, expectedtask.Status)
+	assert.Equal(t, task.SrcIP, expectedtask.SrcIP)
+	assert.Equal(t, task.DstIP, expectedtask.DstIP)
+	assert.Equal(t, task.FilePath, expectedtask.FilePath)
+	assert.Equal(t, task.FileName, expectedtask.FileName)
+	assert.Equal(t, task.Grade, expectedtask.Grade)
+}
+
+func TestGetTask(t *testing.T) {
+	myaddr := "127.0.0.1:8889"
+	cfmaddr := "127.0.0.1:18883"
+	cfm := cfm(cfmaddr)
+	cfm.Start()
+	defer cfm.Close()
+
+	expectedtaskID := int64(222222222222)
+	destip := "127.0.0.1"
+	destaddr := "127.0.0.1:8889"
+	expectedtask := tasker.Task{
+		ID:       expectedtaskID,
+		Ctime:    222222222,
+		Mtime:    333333333,
+		Status:   tasker.READY,
+		SrcIP:    "172.18.0.102",
+		DstIP:    destip,
+		FilePath: "/data2/B.mpg",
+		FileName: "B.mpg",
+		Grade:    2,
+		SrcAddr:  "172.18.0.102:9888",
+		DstAddr:  destaddr,
+	}
 
 	dl := NewDownloader("/data", myaddr, "SampleDownloader", cfmaddr, 90, 1)
-
 	task, ok := dl.getTask()
 	if ok {
 		t.Logf("found task:%s", task)
 	}
 
 	assert.Equal(t, ok, true)
-	assert.Equal(t, task.ID, d2ID)
-	assert.Equal(t, task.Ctime, dummyTaskList[1].Ctime)
-	assert.Equal(t, task.Mtime, dummyTaskList[1].Mtime)
-	assert.Equal(t, task.Status, dummyTaskList[1].Status)
-	assert.Equal(t, task.SrcIP, dummyTaskList[1].SrcIP)
-	assert.Equal(t, task.DstIP, dummyTaskList[1].DstIP)
-	assert.Equal(t, task.FilePath, dummyTaskList[1].FilePath)
-	assert.Equal(t, task.FileName, dummyTaskList[1].FileName)
-	assert.Equal(t, task.Grade, dummyTaskList[1].Grade)
+	assert.Equal(t, task.ID, expectedtask.ID)
+	assert.Equal(t, task.Ctime, expectedtask.Ctime)
+	assert.Equal(t, task.Mtime, expectedtask.Mtime)
+	assert.Equal(t, task.Status, expectedtask.Status)
+	assert.Equal(t, task.SrcIP, expectedtask.SrcIP)
+	assert.Equal(t, task.DstIP, expectedtask.DstIP)
+	assert.Equal(t, task.FilePath, expectedtask.FilePath)
+	assert.Equal(t, task.FileName, expectedtask.FileName)
+	assert.Equal(t, task.Grade, expectedtask.Grade)
 
 	cfw2addr := "127.0.0.3:8889"
 	cfw2 := NewDownloader("/data", cfw2addr, "SampleDownloader", cfmaddr, 90, 1)

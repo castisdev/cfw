@@ -10,7 +10,6 @@ v1.0.0.qr2 / 2020-01-XX
   * 설정 제거
     * [if_name] 제거되고, listen_addr 의 ip,port 값을 사용함
 
-
 [개선]
   * file delete API 응답 추가
     - base direcotry 내의 하위 directroy 지우는 요청이 올 경우 실패 처리

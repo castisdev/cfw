@@ -89,6 +89,8 @@ func (dl *Downloader) RunForever() {
 		if err := dl.reportTask(task, tasker.DONE); err != nil {
 			cilog.Warningf("after download, fail to report(working->done), error(%s)",
 				err.Error())
+		} else {
+			cilog.Infof("[%d] report(working->done)", task.ID)
 		}
 	}
 }
@@ -137,7 +139,7 @@ func (dl *Downloader) download(t *tasker.Task) error {
 			t.ID, t.FileName, tmpDir, dl.BaseDir, err.Error())
 	}
 
-	cilog.Infof("[%d] success downloading, filePath(%s), file(%s), grade(%d), srcIP(%s)",
+	cilog.Infof("[%d] download, filePath(%s), file(%s), grade(%d), srcIP(%s)",
 		t.ID, fileNamePath, t.FileName, t.Grade, t.SrcIP)
 	return nil
 }
@@ -153,18 +155,18 @@ func (dl *Downloader) getTask() (*tasker.Task, bool) {
 	url := fmt.Sprintf("http://%s/tasks", dl.TaskerAddr)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		cilog.Errorf("cannot get task list, error(%s)", err.Error())
+		cilog.Errorf("fail to get task list, error(%s)", err.Error())
 		return nil, false
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := dl.HTTPClient.Do(req)
 	if err != nil {
-		cilog.Errorf("cannot get task list, error(%s)", err.Error())
+		cilog.Errorf("fail to get task list, error(%s)", err.Error())
 		return nil, false
 	}
 	taskList := make([]tasker.Task, 0)
 	if err := json.NewDecoder(resp.Body).Decode(&taskList); err != nil {
-		cilog.Errorf("cannot get task list, error(%s)", err.Error())
+		cilog.Errorf("fail to get task list, error(%s)", err.Error())
 		return nil, false
 	}
 	for _, t := range taskList {
@@ -192,16 +194,19 @@ func (dl *Downloader) waitTask() *tasker.Task {
 		// 	dl.DiskUsageLimitPercent)
 		myTask, ok := dl.getTask()
 		if !ok {
+			//cilog.Debugf("get no task")
 			time.Sleep(time.Second * time.Duration(dl.DownloaderSleepSec))
 			continue
 		}
 
+		cilog.Infof("[%d] find a task(%s)", myTask.ID, *myTask)
 		if err := dl.reportTask(myTask, tasker.WORKING); err != nil {
 			cilog.Warningf("[%d] fail to report(ready->working), error(%s)",
 				myTask.ID, err.Error())
+		} else {
+			cilog.Infof("[%d] report(ready->working)", myTask.ID)
 		}
-		cilog.Debugf("get no task")
-		time.Sleep(time.Second * time.Duration(dl.DownloaderSleepSec))
+		return myTask
 	}
 }
 
@@ -230,10 +235,9 @@ func (dl *Downloader) reportTask(t *tasker.Task, s tasker.Status) error {
 	if err != nil {
 		return err
 	}
-
-	if resp.StatusCode == http.StatusOK {
-		return nil
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("%d", resp.StatusCode)
 	}
 
-	return fmt.Errorf("%d", resp.StatusCode)
+	return nil
 }
