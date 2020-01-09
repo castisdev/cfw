@@ -48,12 +48,13 @@ func main() {
 		os.Exit(0)
 	}
 
+	var err error
 	execDir, err := osext.ExecutableFolder()
 	if err != nil {
 		log.Fatalf("fail to get executable folder, %s", err)
 	}
 
-	config, err := ReadConfig(path.Join(execDir, "cfw.yml"))
+	config, err = ReadConfig(path.Join(execDir, "cfw.yml"))
 	if err != nil {
 		log.Fatalf("fail to read config, error(%s)", err.Error())
 	}
