@@ -1,5 +1,10 @@
-## 2019-12-13
+## 2020-01-09
+DELETE API:
+변경:
+directroy 지우는 기능 제거, 406 return 으로 변경
+	StatusNotAcceptable                = 406 // RFC 7231, 6.5.6
 
+## 2019-12-13
 
 addr/files API :
 하위 directory의 file 은 보내지 않음

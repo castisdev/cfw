@@ -13,6 +13,6 @@ COPYSPEED=$4
 
 echo "download" $SRC_IP, $FILENAME, $SRC_FILEPATH, $COPYSPEED
 touch $FILENAME
-sleep 10
+sleep 5
 
 >&2 echo "Successfully download" $FILENAME

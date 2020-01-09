@@ -106,7 +106,7 @@ func (dl *Downloader) download(t *tasker.Task) error {
 
 	tmpDir := filepath.Join(dl.BaseDir, TempDir)
 	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
-		if err := os.MkdirAll(tmpDir, os.FileMode(755)); err != nil {
+		if err := os.MkdirAll(tmpDir, os.FileMode(0755)); err != nil {
 			return err
 		}
 	}
@@ -122,7 +122,7 @@ func (dl *Downloader) download(t *tasker.Task) error {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("[%d] fail to run cmd, error(%s)", t.ID, err)
+		return fmt.Errorf("[%d] fail to run cmd, error(%s)", t.ID, err.Error())
 	}
 
 	matched, err := regexp.MatchString(DownloadSuccessMatchString, string(stderr.Bytes()))
@@ -131,15 +131,51 @@ func (dl *Downloader) download(t *tasker.Task) error {
 		return fmt.Errorf("[%d] fail to download, srcIP(%s), file(%s), error(%s)",
 			t.ID, t.SrcIP, t.FileName, string(stderr.Bytes()))
 	}
-
-	cilog.Successf("[%d] success downloading, file(%s), grade(%d), srcIP(%s)",
-		t.ID, t.FileName, t.Grade, t.SrcIP)
-	if err := os.Rename(tmpFile, filepath.Join(dl.BaseDir, t.FileName)); err != nil {
-		cilog.Errorf("[%d] fail to move file, file(%s), from(%s), to(%s), error(%s)",
+	fileNamePath := filepath.Join(dl.BaseDir, t.FileName)
+	if err := os.Rename(tmpFile, fileNamePath); err != nil {
+		return fmt.Errorf("[%d] fail to move file, file(%s), from(%s), to(%s), error(%s)",
 			t.ID, t.FileName, tmpDir, dl.BaseDir, err.Error())
 	}
 
+	cilog.Infof("[%d] success downloading, filePath(%s), file(%s), grade(%d), srcIP(%s)",
+		t.ID, fileNamePath, t.FileName, t.Grade, t.SrcIP)
 	return nil
+}
+
+// getTask
+//
+// cfm 의 task list 중에서
+//
+// task.status가 READY이고,
+//
+// task.DstAddr가 cfw의 addr인 첫번째 task를 하나 찾아냄
+func (dl *Downloader) getTask() (*tasker.Task, bool) {
+	url := fmt.Sprintf("http://%s/tasks", dl.TaskerAddr)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		cilog.Errorf("cannot get task list, error(%s)", err.Error())
+		return nil, false
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := dl.HTTPClient.Do(req)
+	if err != nil {
+		cilog.Errorf("cannot get task list, error(%s)", err.Error())
+		return nil, false
+	}
+	taskList := make([]tasker.Task, 0)
+	if err := json.NewDecoder(resp.Body).Decode(&taskList); err != nil {
+		cilog.Errorf("cannot get task list, error(%s)", err.Error())
+		return nil, false
+	}
+	for _, t := range taskList {
+		if t.DstAddr == dl.MyAddr {
+			if t.Status == tasker.READY {
+				myTask := tasker.NewTaskFrom(t)
+				return myTask, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func (dl *Downloader) waitTask() *tasker.Task {
@@ -152,45 +188,18 @@ func (dl *Downloader) waitTask() *tasker.Task {
 			time.Sleep(time.Second * time.Duration(dl.DownloaderSleepSec))
 			continue
 		}
-		cilog.Debugf("start to get task, enough disk space, used <= limit(%d)",
-			dl.DiskUsageLimitPercent)
-
-		url := fmt.Sprintf("http://%s/tasks", dl.TaskerAddr)
-		req, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			cilog.Errorf("cannot get task list, error(%s)", err)
+		// cilog.Debugf("start to get task, enough disk space, used <= limit(%d)",
+		// 	dl.DiskUsageLimitPercent)
+		myTask, ok := dl.getTask()
+		if !ok {
 			time.Sleep(time.Second * time.Duration(dl.DownloaderSleepSec))
 			continue
 		}
 
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err := dl.HTTPClient.Do(req)
-		if err != nil {
-			cilog.Errorf("cannot get task list, error(%s)", err)
-			time.Sleep(time.Second * time.Duration(dl.DownloaderSleepSec))
-			continue
+		if err := dl.reportTask(myTask, tasker.WORKING); err != nil {
+			cilog.Warningf("[%d] fail to report(ready->working), error(%s)",
+				myTask.ID, err.Error())
 		}
-
-		taskList := make(map[int64]*tasker.Task)
-		if err := json.NewDecoder(resp.Body).Decode(&taskList); err != nil {
-			cilog.Errorf("cannot get task list, error(%s)", err.Error())
-			time.Sleep(time.Second * time.Duration(dl.DownloaderSleepSec))
-			continue
-		}
-
-		for _, task := range taskList {
-			if task.DstAddr == dl.MyAddr {
-				if task.Status == tasker.READY {
-					if err := dl.reportTask(task, tasker.WORKING); err != nil {
-						cilog.Warningf("[%d] fail to report(ready->working), error(%s)",
-							task.ID, err.Error())
-					}
-					return task
-				}
-			}
-		}
-
 		cilog.Debugf("get no task")
 		time.Sleep(time.Second * time.Duration(dl.DownloaderSleepSec))
 	}
@@ -205,6 +214,9 @@ func (dl *Downloader) reportTask(t *tasker.Task, s tasker.Status) error {
 	}
 
 	body, err := json.Marshal(&st)
+	if err != nil {
+		return err
+	}
 
 	url := fmt.Sprintf("http://%s/tasks/%d", dl.TaskerAddr, t.ID)
 	req, err := http.NewRequest("PATCH", url, bytes.NewBuffer(body))

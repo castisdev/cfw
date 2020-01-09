@@ -55,7 +55,7 @@ func main() {
 
 	config, err := ReadConfig(path.Join(execDir, "cfw.yml"))
 	if err != nil {
-		log.Fatalf("fail to read config, error(%s)", err)
+		log.Fatalf("fail to read config, error(%s)", err.Error())
 	}
 
 	ValidationConfig(*config)
@@ -89,6 +89,8 @@ func main() {
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
 	}
-	s.ListenAndServe()
-
+	err = s.ListenAndServe()
+	if err != nil {
+		log.Fatalf("fail to start, error(%s)", err.Error())
+	}
 }

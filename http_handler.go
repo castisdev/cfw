@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/castisdev/cfm/common"
-
 	"github.com/gorilla/mux"
 )
 
@@ -28,7 +27,7 @@ func GetFileList(w http.ResponseWriter, r *http.Request) {
 	files, err := ioutil.ReadDir(config.BaseDir)
 	if err != nil {
 		api.Errorf("[%s] fail to get file list, path(%s), error(%s)",
-			r.RemoteAddr, config.BaseDir, err)
+			r.RemoteAddr, config.BaseDir, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -51,22 +50,18 @@ func GetDiskUsage(w http.ResponseWriter, r *http.Request) {
 	du, err := common.GetDiskUsage(config.BaseDir)
 	if err != nil {
 		api.Errorf("[%s] fail to get disk usage, path(%s), error(%s)",
-			r.RemoteAddr, config.BaseDir, err)
+			r.RemoteAddr, config.BaseDir, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	if err := json.NewEncoder(w).Encode(&du); err != nil {
 		api.Errorf("[%s] fail to get disk usage, path(%s), error(%s)",
-			r.RemoteAddr, config.BaseDir, err)
+			r.RemoteAddr, config.BaseDir, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 	api.Debugf("[%s] receive get disk usage request", r.RemoteAddr)
-
-	// https://github.com/golang/go/issues/18761
-	// 버그? : 어떻게 고치는 지는 모르겠음
-	//w.WriteHeader(http.StatusOK)
 }
 
 // DeleteFile :
@@ -88,24 +83,27 @@ func DeleteFile(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if os.IsNotExist(err) {
 			api.Warningf("[%s] fail to delete file(%s), not exist, error(%s)",
-				r.RemoteAddr, filePath, err)
-			w.WriteHeader(http.StatusNoContent)
+				r.RemoteAddr, filePath, err.Error())
+			w.WriteHeader(http.StatusNotFound)
 			return
 		} else {
-			api.Errorf("[%s] fail to delete file(%s), error(%s)", r.RemoteAddr, filePath, err)
+			api.Errorf("[%s] fail to delete file(%s), error(%s)",
+				r.RemoteAddr, filePath, err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 	}
 
 	if finfo.IsDir() {
-		api.Errorf("[%s] fail to delete file, it is directory(%s)", r.RemoteAddr, filePath)
-		w.WriteHeader(http.StatusConflict)
+		api.Errorf("[%s] fail to delete file, it is directory(%s)",
+			r.RemoteAddr, filePath)
+		w.WriteHeader(http.StatusNotAcceptable)
 		return
 	}
 
 	if err := os.Remove(filePath); err != nil {
-		api.Warningf("[%s] fail to delete file(%s), error(%s)", r.RemoteAddr, filePath, err)
+		api.Warningf("[%s] fail to delete file(%s), error(%s)",
+			r.RemoteAddr, filePath, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

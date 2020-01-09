@@ -1,46 +1,75 @@
 # API
 
-## GET /api/caches/{host}/{filePath:.*}
-- 캐시 import url 목록 조회
+## HEAD /hb
+- heartbeat 요청
+- Response:
+  - 200 OK
+- curl 사용 예:
+```bash
+    $ curl -I 127.0.0.1:9888/hb
+```
+- httpie 사용 예:
+```bash
+    $ http HEAD 127.0.0.1:9888/hb
+```
+
+## GET /files
+- base directory의 파일 목록 조회
+    - base directory는 cfm.yml 의 base_dir 설정을 참고함
+    - subdirectory 는 목록에 포함되지 않음
 - Response
+  - 200 OK
+  - 500 Internal Server Error
+
+```text
+file1.mpg
+file2.mpg
+file3.mpg
+```
+- curl 사용 예:
+```bash
+    $ curl 127.0.0.1:9888/files
+```
+- httpie 사용 예:
+```bash
+    $ http 127.0.0.1:9888/files
+```
+
+## GET /df
+- base directory의 disk free 조회
+    - base directory는 cfm.yml 의 base_dir 설정을 참고함
+- Response
+  - 200 OK
+  - 500 Internal Server Error
+
 ```json
-[
-    "http://1.1.1.1:8181/api/caches/httpfsrv/a.mp4",
-    "http://1.1.1.2:8181/api/caches/httpfsrv/a.mp4",
-    "http://1.1.1.3:8181/api/caches/httpfsrv/a.mp4"
-]
+
 ```
-- 전체 streamer 목록 중 우선 순위에 따라서 import url 목록 응답함
-
-## DELETE /api/caches/{host}/{filePath:.*}
-- 캐시 purge
-- Response:
-  - 204 No Content
-
-## POST /api/caches/{host}/{filePath:.*}
-- 캐시 import
-- multipart/form-data 로 파일 업로드
-  - form-data 의 name 필드에 "uploadfile" 값을 써주어야 함
-  - form-data 의 filename 필드는 사용하지 않고 api url 의 {filePath:.*} 파트를 파일 이름으로 사용함
-- Request:
-```
-POST /api/caches/172.16.45.13:8082/sample.mpg HTTP/1.1
-Content-Type: multipart/form-data; boundary=a8e358c39ead463290ef70f4f5b6f024
-Content-Length: 5620976
-
---a8e358c39ead463290ef70f4f5b6f024
-Content-Disposition: form-data; name="uploadfile"; filename="sample.mpg"
-[BINARY DATA]
-```
-- Response:
-  - 201 Created
-
-- CURL 사용 예
+- curl 사용 예:
 ```bash
-$ curl -F "uploadfile=@~/Downloads/sample.mpg" localhost:8092/api/caches/172.16.45.13:8082/sample.mpg
+    $ curl 127.0.0.1:9888/df
+```
+- httpie 사용 예:
+```bash
+    $ http 127.0.0.1:9888/df
 ```
 
-- HTTPie 사용 예
+
+## DELETE /files/{filename}
+- base directory의 파일 삭제
+    - base directory는 cfm.yml 의 base_dir 설정을 참고함
+- Response
+  - 200 OK
+  - 400 Bad Request
+  - 404 Not Found
+  - 406 Not Acceptable
+  - 500 Internal Server Error
+
+- curl 사용 예:
 ```bash
-$ http -f POST localhost:8092/api/caches/172.16.45.13:8082/sample.mpg uploadfile@~/Downloads/sample.mpg
+    $ curl 127.0.0.1:9888/files/file1.mpg
+```
+- httpie 사용 예:
+```bash
+    $ http 127.0.0.1:9888/files/file1.mpg
 ```
