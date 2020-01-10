@@ -1,16 +1,19 @@
 [version 1.0.0.QR2]
+릴리즈 날짜 : 2020-01
+
 컴파일 환경
-- go version go1.10.4 linux/amd64
+- go version go1.9.2 linux/amd64
+- go version go1.13.4 linux/amd64
 
 개발 내용
 1. heartbeat api 추가
 2. files api 결과에서 directory 정보 제거
-3. delete api 일부 리턴 값 수정
-	- 없는 파일 지우는 경우 : 204
+3. file delete api 응답 추가
+	- 없는 파일 지우는 경우 : 404
 	- directory 지우는 경우 : 409
 4. df api 결과 값 수정
 	df 명령 결과 값과 같은 계산식을 사용하게 수정
-5. 설정 추가, 변경
+5. 설정 추가, 제거
 6. 일부 로그 추가, 변경
 
 [version 1.0.0.QR1]

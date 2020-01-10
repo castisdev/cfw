@@ -1,24 +1,64 @@
-# deprecated:
-# 1.0.0.QR2 이후에는 더 이상 사용하지 않음
-#if_name: eth0
-
+# cfw의 disk 용량 제한 %, 기본값 : 90, (0<= 값 <= 100)
+# cfw의 disk 사용량이 이 값보다 작을 때만
+# cfm의 배포 task 를 검사해서 file을 download 함
 storage_usage_limit_percent: 90
 
-log_dir: /var/log/castis/cfw_log
+# log 파일 direcotry, 기본값 : log
+# 설정한 directory가 실제 존재하지 경우, 새로 만들어짐
+# 예:
+# log_dir: /var/log/castis/cfw_log
+log_dir: log
 
-log_level: debug
+# 유효한 log_level : debug,report,info,success,warning,error,fail,exception,critical
+# 기본값 : info
+log_level: info
 
-# cfm와 통신하기 위한 address
+# cfw의 ip, port address
 # cfm의 src 또는 dest address로 등록되어있어야 함
-# cfm이 만든 task list 중에서 task를 찾을 때 key값으로 사용됨
-listen_addr: 127.0.0.1:8888
+# cfm의 배포 task 목록 중에서 자신의 task를 찾을 때 key값으로도 사용됨
+# 직접 설정 필요, 기본값 : 없음
+# 예:
+# listen_addr: 127.0.0.1:8888
+listen_addr:
 
-# cfm의 통신 address
-cfm_addr: 172.18.0.3:8080
+# cfm 의 ip, port address
+# cfm의 배포 task 를 가져올 때 사용
+# 직접 설정 필요, 기본값 : 없음
+# 예:
+# cfm_addr: 127.0.0.1:8080
+cfm_addr:
 
-downloader_bin: /usr/local/castis/tools/SampleNetIODownloader.el5.i686
-
-# cfw가 관리하는 대상이 되는 파일 directory
+# cfw가 관리하는 대상이 되는 directory
 # 해당 directory의 파일 정보를 cfm과 주고 받으면서,
 # 해당 directory로 파일을 download받거나, 해당 directory의 파일을 삭제함
-base_dir: /data
+# 직접 설정 필요, 기본값 : 없음
+# 예:
+# base_dir: /data
+base_dir:
+
+# downloader :
+# 	cfm의 배포 task 목록 중에서 자신의 task를 찾아서
+#   배포 task의 파일을 download하는 모듈
+#			src 서버에서 target 서버로 download 하는 것을 배포라고 함
+
+# downloader 쉬는 시간(초), 기본값 : 5
+# cfm의 배포 task를 검사하고 없는 경우 설정된 시간만큼 쉬고,
+# 다시 검사하는 방식으로 동작
+downloader_sleep_sec: 5
+
+# download 시 사용하는 실행파일 위치
+# 	cfw는 외부 download 실행파일을 실행시켜서 download를 수행함
+# 	cfw는 4개의 파라미터를 아래 순서대로 실행파일에 전달함
+# 		source 서버 IP, target 파일 path, souce 파일 path, download speed(bps)
+#		실행 결과 성공 여부 판단은 stderr의 특정 문자열이 있는지로 판단
+#
+# 직접 설정 필요, 기본값 : 없음
+# 예:
+# downloader_bin: /usr/local/castis/tools/SampleNetIODownloader.el5.i686
+downloader_bin:
+
+# download 실행파일 실행 후 성공 여부를 판단하는 문자열
+#		외부 실행파일의 stderr출력 메시지에
+#		설정된 문자열이 포함되어있으면 성공이라고 판단
+# 기본값 : Successfully, 대소문자 구분함
+downloader_download_success_match_string: Successfully

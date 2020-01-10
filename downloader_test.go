@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/castisdev/cfm/common"
 	"github.com/castisdev/cfm/tasker"
 	"github.com/gorilla/mux"
 	"github.com/stretchr/testify/assert"
@@ -94,6 +95,7 @@ func TestWaitTask(t *testing.T) {
 	expectedtaskID := int64(222222222222)
 	destip := "127.0.0.1"
 	destaddr := "127.0.0.1:8889"
+	successmatch := "Successfully"
 	expectedtask := tasker.Task{
 		ID:       expectedtaskID,
 		Ctime:    222222222,
@@ -108,7 +110,8 @@ func TestWaitTask(t *testing.T) {
 		DstAddr:  destaddr,
 	}
 
-	dl := NewDownloader(".", myaddr, "SampleDownloader", cfmaddr, 100, 1)
+	dl := NewDownloader(".", myaddr, "SampleDownloader", cfmaddr, 100, 1,
+		successmatch)
 
 	task := dl.waitTask()
 	t.Logf("found task:%s", task)
@@ -148,7 +151,9 @@ func TestGetTask(t *testing.T) {
 		DstAddr:  destaddr,
 	}
 
-	dl := NewDownloader("/data", myaddr, "SampleDownloader", cfmaddr, 90, 1)
+	successmatch := "Successfully"
+	dl := NewDownloader("/data", myaddr, "SampleDownloader", cfmaddr, 90, 1,
+		successmatch)
 	task, ok := dl.getTask()
 	if ok {
 		t.Logf("found task:%s", task)
@@ -166,7 +171,8 @@ func TestGetTask(t *testing.T) {
 	assert.Equal(t, task.Grade, expectedtask.Grade)
 
 	cfw2addr := "127.0.0.3:8889"
-	cfw2 := NewDownloader("/data", cfw2addr, "SampleDownloader", cfmaddr, 90, 1)
+	cfw2 := NewDownloader("/data", cfw2addr, "SampleDownloader", cfmaddr, 90, 1,
+		successmatch)
 	task2, ok := cfw2.getTask()
 	if ok {
 		t.Logf("found task2:%s", task2)
@@ -178,25 +184,29 @@ func TestDownloader_download(t *testing.T) {
 	myaddr := "127.0.0.1:8889"
 	cfmaddr := "127.0.0.1:18883"
 	testfilename := "A.mpg"
+	successmatch := "Successfully"
+
+	defer os.RemoveAll(TempDir)
+	defer os.RemoveAll(testfilename)
+
 	dl1 := NewDownloader(".", myaddr,
-		"script//SampleDownloader_Fail", cfmaddr, 90, 1)
+		"script//SampleDownloader_Fail", cfmaddr, 90, 1, successmatch)
 	task := tasker.Task{
 		SrcIP:     "127.0.0.1",
-		FilePath:  "/data3/A.mpg",
+		FilePath:  "/data3/FAIL1.mpg",
 		FileName:  testfilename,
 		CopySpeed: "10000000",
 	}
 	err := dl1.download(&task)
 	assert.NotNil(t, err)
 	assert.Contains(t, err.Error(), "fail to download")
-
 	t.Logf(err.Error())
 
 	dl2 := NewDownloader(".", myaddr,
-		"script/SampleDownloader_Success", cfmaddr, 90, 1)
+		"script/SampleDownloader_Success", cfmaddr, 90, 1, successmatch)
 	task = tasker.Task{
 		SrcIP:     "127.0.0.1",
-		FilePath:  "/data3/A.mpg",
+		FilePath:  "/data3/FAIL2.mpg",
 		FileName:  testfilename,
 		CopySpeed: "20000000",
 	}
@@ -206,17 +216,41 @@ func TestDownloader_download(t *testing.T) {
 	t.Logf(err2.Error())
 
 	dl3 := NewDownloader(".", myaddr,
-		"script/pseudo_downloader.sh", cfmaddr, 90, 1)
+		"script/pseudo_downloader.sh", cfmaddr, 90, 1, successmatch)
 	task = tasker.Task{
 		SrcIP:     "127.0.0.1",
-		FilePath:  "/data3/A.mpg",
+		FilePath:  "/data3/SUCCESS1.mpg",
 		FileName:  testfilename,
 		CopySpeed: "30000000",
 	}
 	err3 := dl3.download(&task)
 	assert.Nil(t, err3)
-	os.RemoveAll(TempDir)
-	os.RemoveAll(testfilename)
+
+	successmatch = "hello"
+	dl4 := NewDownloader(".", myaddr,
+		"script/pseudo_downloader.sh", cfmaddr, 90, 1, successmatch)
+	task = tasker.Task{
+		SrcIP:     "127.0.0.1",
+		FilePath:  "/data3/FAIL3.mpg",
+		FileName:  testfilename,
+		CopySpeed: "30000000",
+	}
+	err4 := dl4.download(&task)
+	assert.NotNil(t, err4)
+	t.Logf(err4.Error())
+
+	successmatch = "successful"
+	dl5 := NewDownloader(".", myaddr,
+		"script/sample_scp_downloader.sh", cfmaddr, 90, 1, successmatch)
+	task = tasker.Task{
+		SrcIP:     "127.0.0.1",
+		FilePath:  "/data1/SCP.mpg",
+		FileName:  testfilename,
+		CopySpeed: "30000000",
+	}
+	err5 := dl5.download(&task)
+	assert.NotNil(t, err5)
+	t.Logf(err5.Error())
 }
 
 func TestDownloader_reportTaskStatusDone(t *testing.T) {
@@ -263,7 +297,7 @@ func TestDownloader_reportTaskStatusDone(t *testing.T) {
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
 	}
-
+	successmatch := "Successfully"
 	ds := httptest.NewUnstartedServer(router)
 	l, _ := net.Listen("tcp", cfmaddr)
 	ds.Listener.Close()
@@ -273,7 +307,7 @@ func TestDownloader_reportTaskStatusDone(t *testing.T) {
 	defer ds.Close()
 
 	dl := NewDownloader(".", myaddr,
-		"SampleDownloader", cfmaddr, 90, 1)
+		"SampleDownloader", cfmaddr, 90, 1, successmatch)
 
 	task := tasker.Task{
 		ID:       requestTaskId,
@@ -287,4 +321,49 @@ func TestDownloader_reportTaskStatusDone(t *testing.T) {
 		Grade:    2,
 	}
 	assert.Nil(t, dl.reportTask(&task, tasker.DONE))
+}
+
+func TestCheckEnoughDiskSpace(t *testing.T) {
+	cfmaddr := "127.0.0.1:18883"
+	myaddr := "127.0.0.1:8889"
+	sleepsec := uint(1)
+	basedir := "."
+	successmatch := "Successfully"
+	du, err := common.GetDiskUsage(basedir)
+	if err != nil {
+		assert.Error(t, err)
+	}
+	var limitpercent uint
+	var dl *Downloader
+	var ok bool
+
+	limitpercent = 100
+	dl = NewDownloader(basedir, myaddr,
+		"SampleDownloader", cfmaddr, limitpercent, sleepsec, successmatch)
+	ok = dl.checkEnoughDiskSpace()
+	assert.Equal(t, true, ok)
+
+	limitpercent = du.UsedPercent
+	dl = NewDownloader(basedir, myaddr,
+		"SampleDownloader", cfmaddr, limitpercent, sleepsec, successmatch)
+	ok = dl.checkEnoughDiskSpace()
+	assert.Equal(t, true, ok)
+
+	limitpercent = du.UsedPercent + uint(10)
+	dl = NewDownloader(basedir, myaddr,
+		"SampleDownloader", cfmaddr, limitpercent, sleepsec, successmatch)
+	ok = dl.checkEnoughDiskSpace()
+	assert.Equal(t, true, ok)
+
+	limitpercent = 0
+	dl = NewDownloader(basedir, myaddr,
+		"SampleDownloader", cfmaddr, limitpercent, sleepsec, successmatch)
+	ok = dl.checkEnoughDiskSpace()
+	assert.Equal(t, false, ok)
+
+	limitpercent = du.UsedPercent - uint(10)
+	dl = NewDownloader(basedir, myaddr,
+		"SampleDownloader", cfmaddr, limitpercent, sleepsec, successmatch)
+	ok = dl.checkEnoughDiskSpace()
+	assert.Equal(t, false, ok)
 }

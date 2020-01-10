@@ -19,40 +19,53 @@ import (
 
 // Downloader :
 type Downloader struct {
-	HTTPClient            *http.Client
-	BaseDir               string
-	MyAddr                string
-	DownloaderBin         string
-	TaskerAddr            string
-	DiskUsageLimitPercent uint
-	DownloaderSleepSec    uint
+	HTTPClient                 *http.Client
+	BaseDir                    string
+	MyAddr                     string
+	DownloaderBin              string
+	TaskerAddr                 string
+	DiskUsageLimitPercent      uint
+	DownloaderSleepSec         uint
+	DownloadSuccessMatchString string
 }
 
 // BaseDir 아래에 만들어지는 temp dir 이름
 const TempDir string = "NetIOTemp"
 
-// download binary가 실행되고, stderr로 내보내는 메시지 중
-// 성공 여부를 판단할 수 있는 문자열
-const DownloadSuccessMatchString = "Successfully"
-
 // NewDownloader :
-// baseDir:
+//
+// baseDir: 파일 download direcotry
+//
 // myAddr: ip:port
-// downloaderBinPath :
-// taskerAddr :
-// usageLimit :
-// sleepSEc : task 검색 후 sleep(초)
+//
+// downloaderBinPath : download 하기 위한 실행파일이름
+//
+// taskerAddr : cfm 주소 (ip:port)
+//
+// usageLimit : download 하기위해 cfw 의 disk limit 사용량(0 <= percent <= 100)
+//
+// sleepSec : task 검색 후 없을 때 sleep 하는 시간(초)
+//
+// DownloadSuccessMatchString : download binary가 실행되고, stderr로 내보내는 메시지 중
+// 성공 여부를 판단할 수 있는 문자열
 func NewDownloader(baseDir string, myAddr string, downloaderBinPath string,
-	taskerAddr string, usageLimit uint, sleepSec uint) *Downloader {
+	taskerAddr string, usageLimit uint, sleepSec uint,
+	downloadSuccessMatchString string) *Downloader {
+	if usageLimit > 100 {
+		usageLimit = 100
+	}
+	baseDir = filepath.Clean(baseDir)
+	downloaderBinPath = filepath.Clean(downloaderBinPath)
 
 	return &Downloader{
-		HTTPClient:            &http.Client{Timeout: time.Second * 10},
-		BaseDir:               baseDir,
-		MyAddr:                myAddr,
-		DownloaderBin:         downloaderBinPath,
-		TaskerAddr:            taskerAddr,
-		DiskUsageLimitPercent: usageLimit,
-		DownloaderSleepSec:    sleepSec,
+		HTTPClient:                 &http.Client{Timeout: time.Second * 10},
+		BaseDir:                    baseDir,
+		MyAddr:                     myAddr,
+		DownloaderBin:              downloaderBinPath,
+		TaskerAddr:                 taskerAddr,
+		DiskUsageLimitPercent:      usageLimit,
+		DownloaderSleepSec:         sleepSec,
+		DownloadSuccessMatchString: downloadSuccessMatchString,
 	}
 }
 
@@ -87,8 +100,8 @@ func (dl *Downloader) RunForever() {
 		}
 
 		if err := dl.reportTask(task, tasker.DONE); err != nil {
-			cilog.Warningf("after download, fail to report(working->done), error(%s)",
-				err.Error())
+			cilog.Warningf("[%d] after download, fail to report(working->done), error(%s)",
+				task.ID, err.Error())
 		} else {
 			cilog.Infof("[%d] report(working->done)", task.ID)
 		}
@@ -97,6 +110,7 @@ func (dl *Downloader) RunForever() {
 
 func (dl *Downloader) removeTempdir() {
 	tmpDir := filepath.Join(dl.BaseDir, TempDir)
+	tmpDir = filepath.Clean(tmpDir)
 	if err := os.RemoveAll(tmpDir); err != nil {
 		cilog.Errorf("fail to remove temp dir(%s), error(%s)", tmpDir, err.Error())
 	} else {
@@ -105,18 +119,24 @@ func (dl *Downloader) removeTempdir() {
 }
 
 func (dl *Downloader) download(t *tasker.Task) error {
-
 	tmpDir := filepath.Join(dl.BaseDir, TempDir)
+	tmpDir = filepath.Clean(tmpDir)
 	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(tmpDir, os.FileMode(0755)); err != nil {
 			return err
 		}
 	}
 	tmpFile := filepath.Join(tmpDir, t.FileName+"."+strconv.FormatInt(t.ID, 10))
-	cilog.Infof("[%d] start to download, file(%s), grade(%d), srcIP(%s), copySpeed(%s)",
-		t.ID, t.FileName, t.Grade, t.SrcIP, t.CopySpeed)
-	cilog.Debugf("cmd (%s %s %s %s %s)",
+	tmpFile = filepath.Clean(tmpFile)
+	targetFileNamePath := filepath.Join(dl.BaseDir, t.FileName)
+
+	dltaskdesc := fmt.Sprintf("targetFilePath(%s), srcIP(%s), srcFilePath(%s), grade(%d), bps(%s)",
+		targetFileNamePath, t.SrcIP, t.FilePath, t.Grade, t.CopySpeed)
+	cilog.Infof("[%d] start to download, %s", t.ID, dltaskdesc)
+
+	cmddesc := fmt.Sprintf("cmd(%s), srcIP(%s), targetFilePath(%s), srcFilePath(%s), bps(%s)",
 		dl.DownloaderBin, t.SrcIP, tmpFile, t.FilePath, t.CopySpeed)
+	cilog.Infof("[%d] %s", t.ID, cmddesc)
 
 	cmd := exec.Command(dl.DownloaderBin, t.SrcIP, tmpFile, t.FilePath, t.CopySpeed)
 	var stdout, stderr bytes.Buffer
@@ -124,23 +144,23 @@ func (dl *Downloader) download(t *tasker.Task) error {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("[%d] fail to run cmd, error(%s)", t.ID, err.Error())
+		return fmt.Errorf("[%d] fail to download, %s, fail to run %s, error(%s)",
+			t.ID, dltaskdesc, cmddesc, err.Error())
 	}
 
-	matched, err := regexp.MatchString(DownloadSuccessMatchString, string(stderr.Bytes()))
+	matched, err := regexp.MatchString(dl.DownloadSuccessMatchString, string(stderr.Bytes()))
 	if !matched {
 		os.Remove(tmpFile)
-		return fmt.Errorf("[%d] fail to download, srcIP(%s), file(%s), error(%s)",
-			t.ID, t.SrcIP, t.FileName, string(stderr.Bytes()))
-	}
-	fileNamePath := filepath.Join(dl.BaseDir, t.FileName)
-	if err := os.Rename(tmpFile, fileNamePath); err != nil {
-		return fmt.Errorf("[%d] fail to move file, file(%s), from(%s), to(%s), error(%s)",
-			t.ID, t.FileName, tmpDir, dl.BaseDir, err.Error())
+		return fmt.Errorf("[%d] fail to download, %s, fail to match(%s) in stderr(%s)",
+			t.ID, dltaskdesc, dl.DownloadSuccessMatchString, string(stderr.Bytes()))
 	}
 
-	cilog.Infof("[%d] download, filePath(%s), file(%s), grade(%d), srcIP(%s)",
-		t.ID, fileNamePath, t.FileName, t.Grade, t.SrcIP)
+	if err := os.Rename(tmpFile, targetFileNamePath); err != nil {
+		return fmt.Errorf("[%d] fail to download, %s, fail to move file(%s) to(%s), error(%s)",
+			t.ID, dltaskdesc, tmpFile, targetFileNamePath, err.Error())
+	}
+
+	cilog.Infof("[%d] download, %s", t.ID, dltaskdesc)
 	return nil
 }
 

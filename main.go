@@ -33,10 +33,6 @@ func main() {
 	printVer := flag.Bool("version", false, "print version includes pre-release version")
 	flag.Parse()
 
-	if err := common.EnableCoreDump(); err != nil {
-		log.Fatal(err)
-	}
-
 	if *printSimpleVer {
 		fmt.Println(AppName + " " + AppVersion)
 		os.Exit(0)
@@ -60,6 +56,12 @@ func main() {
 
 	ValidationConfig(*config)
 
+	if config.EnableCoreDump {
+		if err := common.EnableCoreDump(); err != nil {
+			log.Fatalf("can not enable coredump, error(%s)", err.Error())
+		}
+	}
+
 	logLevel, _ := cilog.LevelFromString(config.LogLevel)
 
 	mLogWriter := common.MLogWriter{
@@ -78,7 +80,8 @@ func main() {
 	myAddr := config.ListenAddr
 	cilog.Infof("process start")
 	dl := NewDownloader(config.BaseDir, myAddr, config.DownloaderBin,
-		config.CFMAddr, config.StorageUsageLimitPercent, config.DownloaderSleepSec)
+		config.CFMAddr, config.StorageUsageLimitPercent, config.DownloaderSleepSec,
+		config.DownloadSuccessMatchString)
 	go dl.RunForever()
 
 	router := NewRouter()
