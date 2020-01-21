@@ -11,6 +11,9 @@ FILENAME=$2
 SRC_FILEPATH=$3
 BPS=$4
 
+#
+# https://stackoverflow.com/questions/20627207/check-the-status-code-of-a-scp-command-and-if-it-is-failed-then-call-scp-on-ano
+# https://www.lesstif.com/pages/viewpage.action?pageId=12943452
 # - id/password 등의 입력을 피하기 위해서는
 # 	local server에 private key,public key를 만들고
 #		source server에 public key를 미리 copy 해놓고 사용해야한다고 함

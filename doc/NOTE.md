@@ -1,3 +1,9 @@
+## 2020-01-21
+- 메모리 누수 방지 위한 코드 추가, keep alive 설정 시에 문제 방지 코드 추가
+  - // https://stackoverflow.com/questions/33229860/go-http-requests-json-reusing-connections
+   - // https: //stackoverflow.com/questions/17959732/why-is-go-https-client-not-reusing-connections
+
+
 ## 2020-01-09
 DELETE API:
 변경:

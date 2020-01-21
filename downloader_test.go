@@ -76,13 +76,13 @@ func cfm(cfmaddr string) *httptest.Server {
 		WriteTimeout: 5 * time.Second,
 	}
 
-	cfw := httptest.NewUnstartedServer(router)
+	cfm := httptest.NewUnstartedServer(router)
 	l, _ := net.Listen("tcp", cfmaddr)
-	cfw.Listener.Close()
-	cfw.Listener = l
-	cfw.Config = s
+	cfm.Listener.Close()
+	cfm.Listener = l
+	cfm.Config = s
 
-	return cfw
+	return cfm
 }
 
 func TestWaitTask(t *testing.T) {

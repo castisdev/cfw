@@ -49,10 +49,12 @@ func request(method, url string, body []byte) (int, []byte, error) {
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{Timeout: time.Second * 10}
 	resp, err := client.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return 0, nil, err
 	}
-	defer resp.Body.Close()
 	responsebody, _ := ioutil.ReadAll(resp.Body)
 
 	return resp.StatusCode, responsebody, nil

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -180,14 +182,23 @@ func (dl *Downloader) getTask() (*tasker.Task, bool) {
 	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := dl.HTTPClient.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		cilog.Errorf("fail to get task list, error(%s)", err.Error())
 		return nil, false
 	}
 	taskList := make([]tasker.Task, 0)
-	if err := json.NewDecoder(resp.Body).Decode(&taskList); err != nil {
+
+	dec := json.NewDecoder(resp.Body)
+	if err := dec.Decode(&taskList); err != nil {
 		cilog.Errorf("fail to get task list, error(%s)", err.Error())
 		return nil, false
+	}
+	if dec.More() {
+		// there's more data in the stream, so discard whatever is left
+		io.Copy(ioutil.Discard, resp.Body)
 	}
 	for _, t := range taskList {
 		if t.DstAddr == dl.MyAddr {
@@ -252,9 +263,14 @@ func (dl *Downloader) reportTask(t *tasker.Task, s tasker.Status) error {
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := dl.HTTPClient.Do(req)
+	if resp != nil {
+		defer resp.Body.Close()
+	}
 	if err != nil {
 		return err
 	}
+	io.Copy(ioutil.Discard, resp.Body)
+
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%d", resp.StatusCode)
 	}
