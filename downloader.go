@@ -32,7 +32,7 @@ type Downloader struct {
 }
 
 // BaseDir 아래에 만들어지는 temp dir 이름
-const TempDir string = "NetIOTemp"
+const TempDir string = "temp.downloaded"
 
 // NewDownloader :
 //
@@ -57,7 +57,6 @@ func NewDownloader(baseDir string, myAddr string, downloaderBinPath string,
 		usageLimit = 100
 	}
 	baseDir = filepath.Clean(baseDir)
-	downloaderBinPath = filepath.Clean(downloaderBinPath)
 
 	return &Downloader{
 		HTTPClient:                 &http.Client{Timeout: time.Second * 10},
@@ -76,17 +75,17 @@ func NewDownloader(baseDir string, myAddr string, downloaderBinPath string,
 func (dl *Downloader) checkEnoughDiskSpace() bool {
 	du, err := common.GetDiskUsage(dl.BaseDir)
 	if err != nil {
-		cilog.Errorf("check disk space, fail to get disk usage percent, error(%s)",
+		cilog.Errorf("failed to get disk usage percent, error(%s)",
 			err.Error())
 		return false
 	}
 	if du.UsedPercent > dl.DiskUsageLimitPercent {
-		cilog.Warningf("check disk space, not enough disk space, used(%d) > limit(%d)",
+		cilog.Warningf("checked disk space not enough, used(%d) > limit(%d)",
 			du.UsedPercent, dl.DiskUsageLimitPercent)
 		return false
 	}
 
-	cilog.Debugf("check disk space, enough disk space, used(%d) <= limit(%d)",
+	cilog.Debugf("checked disk space enough, used(%d) <= limit(%d)",
 		du.UsedPercent, dl.DiskUsageLimitPercent)
 	return true
 }
@@ -102,10 +101,10 @@ func (dl *Downloader) RunForever() {
 		}
 
 		if err := dl.reportTask(task, tasker.DONE); err != nil {
-			cilog.Warningf("[%d] after download, fail to report(working->done), error(%s)",
+			cilog.Warningf("[%d] failed to report task status(working->done), error(%s)",
 				task.ID, err.Error())
 		} else {
-			cilog.Infof("[%d] report(working->done)", task.ID)
+			cilog.Infof("[%d] reported task status(working->done)", task.ID)
 		}
 	}
 }
@@ -114,9 +113,9 @@ func (dl *Downloader) removeTempdir() {
 	tmpDir := filepath.Join(dl.BaseDir, TempDir)
 	tmpDir = filepath.Clean(tmpDir)
 	if err := os.RemoveAll(tmpDir); err != nil {
-		cilog.Errorf("fail to remove temp dir(%s), error(%s)", tmpDir, err.Error())
+		cilog.Errorf("failed to remove temp dir(%s), error(%s)", tmpDir, err.Error())
 	} else {
-		cilog.Infof("remove temp dir(%s)", tmpDir)
+		cilog.Infof("removed temp dir(%s)", tmpDir)
 	}
 }
 
@@ -134,7 +133,7 @@ func (dl *Downloader) download(t *tasker.Task) error {
 
 	dltaskdesc := fmt.Sprintf("targetFilePath(%s), srcIP(%s), srcFilePath(%s), grade(%d), bps(%s)",
 		targetFileNamePath, t.SrcIP, t.FilePath, t.Grade, t.CopySpeed)
-	cilog.Infof("[%d] start to download, %s", t.ID, dltaskdesc)
+	cilog.Infof("[%d] started to download, %s", t.ID, dltaskdesc)
 
 	cmddesc := fmt.Sprintf("cmd(%s), srcIP(%s), targetFilePath(%s), srcFilePath(%s), bps(%s)",
 		dl.DownloaderBin, t.SrcIP, tmpFile, t.FilePath, t.CopySpeed)
@@ -146,23 +145,23 @@ func (dl *Downloader) download(t *tasker.Task) error {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	if err != nil {
-		return fmt.Errorf("[%d] fail to download, %s, fail to run %s, error(%s)",
+		return fmt.Errorf("[%d] failed to download, %s, fail to run %s, error(%s)",
 			t.ID, dltaskdesc, cmddesc, err.Error())
 	}
 
 	matched, err := regexp.MatchString(dl.DownloadSuccessMatchString, string(stderr.Bytes()))
 	if !matched {
 		os.Remove(tmpFile)
-		return fmt.Errorf("[%d] fail to download, %s, fail to match(%s) in stderr(%s)",
+		return fmt.Errorf("[%d] failed to download, %s, fail to match(%s) in stderr(%s)",
 			t.ID, dltaskdesc, dl.DownloadSuccessMatchString, string(stderr.Bytes()))
 	}
 
 	if err := os.Rename(tmpFile, targetFileNamePath); err != nil {
-		return fmt.Errorf("[%d] fail to download, %s, fail to move file(%s) to(%s), error(%s)",
+		return fmt.Errorf("[%d] failed to download, %s, fail to move file(%s) to(%s), error(%s)",
 			t.ID, dltaskdesc, tmpFile, targetFileNamePath, err.Error())
 	}
 
-	cilog.Infof("[%d] download, %s", t.ID, dltaskdesc)
+	cilog.Infof("[%d] downloaded, %s", t.ID, dltaskdesc)
 	return nil
 }
 
@@ -177,7 +176,7 @@ func (dl *Downloader) getTask() (*tasker.Task, bool) {
 	url := fmt.Sprintf("http://%s/tasks", dl.TaskerAddr)
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		cilog.Errorf("fail to get task list, error(%s)", err.Error())
+		cilog.Errorf("failed to get tasks, error(%s)", err.Error())
 		return nil, false
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -186,14 +185,14 @@ func (dl *Downloader) getTask() (*tasker.Task, bool) {
 		defer resp.Body.Close()
 	}
 	if err != nil {
-		cilog.Errorf("fail to get task list, error(%s)", err.Error())
+		cilog.Errorf("failed to get tasks, error(%s)", err.Error())
 		return nil, false
 	}
 	taskList := make([]tasker.Task, 0)
 
 	dec := json.NewDecoder(resp.Body)
 	if err := dec.Decode(&taskList); err != nil {
-		cilog.Errorf("fail to get task list, error(%s)", err.Error())
+		cilog.Errorf("failed to get tasks, error(%s)", err.Error())
 		return nil, false
 	}
 	if dec.More() {
@@ -216,7 +215,7 @@ func (dl *Downloader) waitTask() *tasker.Task {
 	for {
 		ok := dl.checkEnoughDiskSpace()
 		if !ok {
-			cilog.Debugf("skip getting task, not enough disk space, used > limit(%d)",
+			cilog.Debugf("skipped getting tasks, not enough disk space, used > limit(%d)",
 				dl.DiskUsageLimitPercent)
 			time.Sleep(time.Second * time.Duration(dl.DownloaderSleepSec))
 			continue
@@ -230,12 +229,12 @@ func (dl *Downloader) waitTask() *tasker.Task {
 			continue
 		}
 
-		cilog.Infof("[%d] find a task(%s)", myTask.ID, *myTask)
+		cilog.Infof("[%d] found my task(%s)", myTask.ID, *myTask)
 		if err := dl.reportTask(myTask, tasker.WORKING); err != nil {
-			cilog.Warningf("[%d] fail to report(ready->working), error(%s)",
+			cilog.Warningf("[%d] failed to report task status(ready->working), error(%s)",
 				myTask.ID, err.Error())
 		} else {
-			cilog.Infof("[%d] report(ready->working)", myTask.ID)
+			cilog.Infof("[%d] reported task status(ready->working)", myTask.ID)
 		}
 		return myTask
 	}

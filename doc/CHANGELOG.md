@@ -9,7 +9,7 @@ v1.0.0.qr2 / 2020-01-23
   * df api 결과 값 수정
 	  - df 명령 결과 값과 같은 계산식을 사용하게 수정
   * cfm tasks API 변경 반영
-    - reposne가 map 형태에서 list 형태로 바뀐 것 반영
+    - reponse가 map 형태에서 list 형태로 바뀐 것 반영
   * 일부 로그 추가, 변경
   * 최신 로그 파일에 대한 symbol link 파일 생성
   * 설정 제거

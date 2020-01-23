@@ -46,12 +46,12 @@ func main() {
 	var err error
 	execDir, err := osext.ExecutableFolder()
 	if err != nil {
-		log.Fatalf("fail to get executable folder, %s", err)
+		log.Fatalf("failed to get executable folder, %s", err)
 	}
 
 	config, err = ReadConfig(path.Join(execDir, "cfw.yml"))
 	if err != nil {
-		log.Fatalf("fail to read config, error(%s)", err.Error())
+		log.Fatalf("failed to read config, error(%s)", err.Error())
 	}
 
 	ValidationConfig(*config)
@@ -78,7 +78,7 @@ func main() {
 		AppName, AppVersion, logLevel)
 
 	myAddr := config.ListenAddr
-	cilog.Infof("process start")
+	cilog.Infof("started main process")
 	dl := NewDownloader(config.BaseDir, myAddr, config.DownloaderBin,
 		config.CFMAddr, config.StorageUsageLimitPercent, config.DownloaderSleepSec,
 		config.DownloadSuccessMatchString)
@@ -94,6 +94,6 @@ func main() {
 	}
 	err = s.ListenAndServe()
 	if err != nil {
-		log.Fatalf("fail to start, error(%s)", err.Error())
+		log.Fatalf("failed to start, error(%s)", err.Error())
 	}
 }

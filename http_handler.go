@@ -14,19 +14,22 @@ import (
 
 // Heartbeat :
 func Heartbeat(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain;charset=UTF-8")
+	api.Infof("[%s] received heartbeat request", r.RemoteAddr)
+	defer api.Infof("[%s] responsed heartbeat request", r.RemoteAddr)
 
-	api.Debugf("[%s] receive heartbeat request", r.RemoteAddr)
+	w.Header().Set("Content-Type", "text/plain;charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
 }
 
 // GetFileList :
 func GetFileList(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/plain;charset=UTF-8")
+	api.Infof("[%s] received getFileList request", r.RemoteAddr)
+	defer api.Infof("[%s] responsed getFileList request", r.RemoteAddr)
 
+	w.Header().Set("Content-Type", "text/plain;charset=UTF-8")
 	files, err := ioutil.ReadDir(config.BaseDir)
 	if err != nil {
-		api.Errorf("[%s] fail to get file list, path(%s), error(%s)",
+		api.Errorf("[%s] failed to read basedir, path(%s), error(%s)",
 			r.RemoteAddr, config.BaseDir, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -39,40 +42,41 @@ func GetFileList(w http.ResponseWriter, r *http.Request) {
 		}
 		fmt.Fprintln(w, file.Name())
 	}
-
-	api.Debugf("[%s] receive get file list request", r.RemoteAddr)
 }
 
 // GetDiskUsage :
 func GetDiskUsage(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+	api.Infof("[%s] received getDiskUsage request", r.RemoteAddr)
+	defer api.Infof("[%s] responsed getDiskUsage request", r.RemoteAddr)
 
+	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
 	du, err := common.GetDiskUsage(config.BaseDir)
 	if err != nil {
-		api.Errorf("[%s] fail to get disk usage, path(%s), error(%s)",
+		api.Errorf("[%s] failed to get disk usage, path(%s), error(%s)",
 			r.RemoteAddr, config.BaseDir, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	if err := json.NewEncoder(w).Encode(&du); err != nil {
-		api.Errorf("[%s] fail to get disk usage, path(%s), error(%s)",
+		api.Errorf("[%s] failed to get disk usage, path(%s), error(%s)",
 			r.RemoteAddr, config.BaseDir, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	api.Debugf("[%s] receive get disk usage request", r.RemoteAddr)
 }
 
 // DeleteFile :
 func DeleteFile(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
+	api.Infof("[%s] received deleteFile request", r.RemoteAddr)
+	defer api.Infof("[%s] responsed deleteFile request", r.RemoteAddr)
 
+	w.Header().Set("Content-Type", "application/json;charset=UTF-8")
 	vars := mux.Vars(r)
 	fileName, exists := vars["fileName"]
 
 	if !exists {
-		api.Errorf("[%s] fail to delete file, request has no fileName", r.RemoteAddr)
+		api.Errorf("[%s] failed to delete file, request has no fileName", r.RemoteAddr)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
@@ -82,12 +86,12 @@ func DeleteFile(w http.ResponseWriter, r *http.Request) {
 	finfo, err := os.Stat(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			api.Warningf("[%s] fail to delete file(%s), not exist, error(%s)",
+			api.Warningf("[%s] failed to delete file(%s), not exist, error(%s)",
 				r.RemoteAddr, filePath, err.Error())
 			w.WriteHeader(http.StatusNotFound)
 			return
 		} else {
-			api.Errorf("[%s] fail to delete file(%s), error(%s)",
+			api.Errorf("[%s] failed to delete file(%s), error(%s)",
 				r.RemoteAddr, filePath, err.Error())
 			w.WriteHeader(http.StatusInternalServerError)
 			return
@@ -95,19 +99,19 @@ func DeleteFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if finfo.IsDir() {
-		api.Errorf("[%s] fail to delete file, it is directory(%s)",
+		api.Errorf("[%s] failed to delete file, it is directory(%s)",
 			r.RemoteAddr, filePath)
 		w.WriteHeader(http.StatusNotAcceptable)
 		return
 	}
 
 	if err := os.Remove(filePath); err != nil {
-		api.Warningf("[%s] fail to delete file(%s), error(%s)",
+		api.Warningf("[%s] failed to delete file(%s), error(%s)",
 			r.RemoteAddr, filePath, err.Error())
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	api.Infof("[%s] deleted file(%s)", r.RemoteAddr, filePath)
 
-	api.Infof("[%s] receive delete file request, delete file(%s)", r.RemoteAddr, filePath)
 	w.WriteHeader(http.StatusOK)
 }
